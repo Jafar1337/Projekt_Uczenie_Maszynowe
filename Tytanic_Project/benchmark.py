@@ -107,3 +107,40 @@ for name, model in models_full.items():
 
 full_df = pd.DataFrame(benchmark_full, index=['Mean Accuracy', 'Std Dev']).T
 print(full_df.sort_values('Mean Accuracy', ascending=False))
+
+from sklearn.ensemble import GradientBoostingClassifier
+from xgboost import XGBClassifier
+
+# Random Forest z GridSearchCV
+param_grid_rf = {
+    'n_estimators': [100, 200],
+    'max_depth': [4, 6, 8],
+    'min_samples_split': [2, 5],
+}
+grid_rf = GridSearchCV(RandomForestClassifier(random_state=42), param_grid_rf, cv=5, scoring='accuracy')
+grid_rf.fit(X_selected, y_res)
+rf_best = grid_rf.best_estimator_
+rf_score = cross_val_score(rf_best, X_selected, y_res, cv=5, scoring='accuracy')
+
+# Gradient Boosting
+gb = GradientBoostingClassifier(random_state=42)
+gb_score = cross_val_score(gb, X_selected, y_res, cv=5, scoring='accuracy')
+
+# XGBoost (upewnij się, że masz zainstalowane `xgboost`)
+xgb = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+xgb_score = cross_val_score(xgb, X_selected, y_res, cv=5, scoring='accuracy')
+
+# Voting Classifier (ensemble z LogReg, RF i XGB)
+voting = VotingClassifier(estimators=[
+    ('lr', LogisticRegression(max_iter=1000)),
+    ('rf', rf_best),
+    ('xgb', xgb)
+], voting='soft')
+voting_score = cross_val_score(voting, X_selected, y_res, cv=5, scoring='accuracy')
+
+# Wyświetlanie wyników
+print("\n🧪 Benchmark - Dodatkowe modele:\n")
+print(f"Random Forest (GridSearch):  {rf_score.mean():.6f}  (std: {rf_score.std():.6f})")
+print(f"Gradient Boosting:          {gb_score.mean():.6f}  (std: {gb_score.std():.6f})")
+print(f"XGBoost:                     {xgb_score.mean():.6f}  (std: {xgb_score.std():.6f})")
+print(f"Voting Classifier:           {voting_score.mean():.6f}  (std: {voting_score.std():.6f})")
